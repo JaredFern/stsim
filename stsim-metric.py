@@ -34,7 +34,7 @@ def main(opt):
                     class_matrix.append(np.std(curr_train[:,1:], axis=0))
                 elif opt.distance_metric =='cov':
                     class_matrix.append(np.cov(curr_train[:,1:], rowvar=False))
-
+            
         train_split = np.asarray(train_split)
         if opt.scope =='global':
             if opt.distance_metric =='std':
@@ -97,10 +97,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--normalize', choices = ['z-norm', 'L2-norm'])
     parser.add_argument('--distance_metric', choices = ['var', 'cov', 'std'])
+    parser.add_argument('--aca_color_count', type=int, default=0)
+    parser.add_argument('--aca_color_ordering', choices = ['luminance', 'composition'])
     parser.add_argument('--scope', choices=['global', 'intraclass'])
     parser.add_argument('--exemplar', choices=['nearest_neighbor', 'cluster_center'])
     parser.add_argument('--cluster_method', choices = ['kmeans','gmm'], default='kmeans')
     parser.add_argument('--cluster_cnt', type=int, default=5)
+    parser.add_argument('--aca_color_count', type=int, default=0)
+    parser.add_argument('--aca_color_ordering', choices = ['luminance', 'composition'])
     parser.add_argument('--fold_cnt', type=int, default=10)
 
     opt = parser.parse_args()
