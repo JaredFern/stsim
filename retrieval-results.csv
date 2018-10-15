@@ -1,40 +1,52 @@
-Distance Matrix,Scope,Clustering,Exemplar,Exemplar Cnt,Precision,Recall,F1
-Variance,Global,K-means,Nearest Neighbor,5,0.7079,0.6805,0.674
-Covariance,Global,K-means,Nearest Neighbor,5,0.7238,0.6665,0.669
-,,,,,,,
-Variance,Global,Gaussian Mixture,Nearest Neighbor,5,0.6964,0.6694,0.6635
-Covariance,Global,Gaussian Mixture,Nearest Neighbor,5,0.7062,0.631,0.6381
-,,,,,,,
-Variance,Intraclass,K-means,Nearest Neighbor,5,0.8079,0.7876,0.7841
-Covariance,Intraclass,K-means,Nearest Neighbor,5,,,
-,,,,,,,
-Variance,Intraclass,Gaussian Mixture,Nearest Neighbor,5,0.8068,0.7884,0.7854
-Covariance,Intraclass,Gaussian Mixture,Nearest Neighbor,5,,,
-,,,,,,,
-Variance,Global,K-means,Cluster Center,5,0.8172,0.8044,0.8074
-Covariance,Global,K-means,Cluster Center,5,0.9057,0.8961,0.895
-Standard Deviation,Global,K-means,Cluster Center,5,0.8162,0.8051,0.8143
-,,,,,,,
-Variance,Global,Gaussian Mixture,Cluster Center,5,0.8066,0.7956,0.793
-Covariance,Global,Gaussian Mixture,Cluster Center,5,0.9065,0.896,0.8953
-Standard Deviation,Global,Gaussian Mixture,Cluster Center,5,0.817,0.8044,0.8009
-,,,,,,,
-Variance,Intraclass,K-means,Cluster Center,5,0.8821,0.8701,0.8688
-Covariance,Intraclass,K-means,Cluster Center,5,0.9624,0.9579,0.9576
-Standard Deviation,Intraclass,K-means,Cluster Center,5,0.8652,0.8543,0.8521
-,,,,,,,
-Variance,Intraclass,Gaussian Mixture,Cluster Center,5,0.8716,0.8588,0.8573
-Covariance,Intraclass,Gaussian Mixture,Cluster Center,5,0.9586,0.9544,0.9536
-Standard Deviation,Intraclass,Gaussian Mixture,Cluster Center,5,0.8489,0.8377,0.8354
-,,,,,,,
-Covariance,Intraclass,K-means,Cluster Center,1,0.9073,0.8969,0.8956
-Covariance,Intraclass,K-means,Cluster Center,2,0.9277,0.9216,0.9259
-Covariance,Intraclass,K-means,Cluster Center,3,0.9519,0.9496,0.9488
-Covariance,Intraclass,K-means,Cluster Center,4,0.943,0.9398,0.9505
-Covariance,Intraclass,K-means,Cluster Center,5,0.9624,0.9579,0.9576
-Covariance,Intraclass,K-means,Cluster Center,6,0.9503,0.9488,0.9482
-Covariance,Intraclass,K-means,Cluster Center,7,0.9572,0.955,0.9604
-Covariance,Intraclass,K-means,Cluster Center,8,0.9611,0.9588,0.9586
-Covariance,Intraclass,K-means,Cluster Center,9,0.9538,0.9514,0.9509
-Covariance,Intraclass,K-means,Cluster Center,10,0.9602,0.9581,0.9579
-Covariance,Intraclass,K-means,Cluster Center,20,0.9642,0.9623,0.9567
+Distance Matrix,Scope,Clustering,Exemplar,Color,Exemplar Cnt,Precision,Recall,F1
+Variance,Global,K-means,Nearest Neighbor,Grayscale,5,0.7079,0.6805,0.674
+Covariance,Global,K-means,Nearest Neighbor,Grayscale,5,0.7238,0.6665,0.669
+,,,,,,,,
+Variance,Global,Gaussian Mixture,Nearest Neighbor,Grayscale,5,0.6964,0.6694,0.6635
+Covariance,Global,Gaussian Mixture,Nearest Neighbor,Grayscale,5,0.7062,0.631,0.6381
+,,,,,,,,
+Variance,Intraclass,K-means,Nearest Neighbor,Grayscale,5,0.8079,0.7876,0.7841
+Covariance,Intraclass,K-means,Nearest Neighbor,Grayscale,5,,,
+,,,,,,,,
+Variance,Intraclass,Gaussian Mixture,Nearest Neighbor,Grayscale,5,0.8068,0.7884,0.7854
+Covariance,Intraclass,Gaussian Mixture,Nearest Neighbor,Grayscale,5,,,
+,,,,,,,,
+Variance,Global,K-means,Cluster Center,Grayscale,5,0.8172,0.8044,0.8074
+Covariance,Global,K-means,Cluster Center,Grayscale,5,0.9057,0.8961,0.895
+Standard Deviation,Global,K-means,Cluster Center,Grayscale,5,0.8162,0.8051,0.8143
+,,,,,,,,
+Variance,Global,Gaussian Mixture,Cluster Center,Grayscale,5,0.8066,0.7956,0.793
+Covariance,Global,Gaussian Mixture,Cluster Center,Grayscale,5,0.9065,0.896,0.8953
+Standard Deviation,Global,Gaussian Mixture,Cluster Center,Grayscale,5,0.817,0.8044,0.8009
+,,,,,,,,
+Variance,Intraclass,K-means,Cluster Center,Grayscale,5,0.8821,0.8701,0.8688
+Covariance,Intraclass,K-means,Cluster Center,Grayscale,5,0.9624,0.9579,0.9576
+Standard Deviation,Intraclass,K-means,Cluster Center,Grayscale,5,0.8652,0.8543,0.8521
+,,,,,,,,
+Variance,Intraclass,Gaussian Mixture,Cluster Center,,5,0.8716,0.8588,0.8573
+Covariance,Intraclass,Gaussian Mixture,Cluster Center,,5,0.9586,0.9544,0.9536
+Standard Deviation,Intraclass,Gaussian Mixture,Cluster Center,,5,0.8489,0.8377,0.8354
+,,,,,,,,
+Covariance,Intraclass,K-means,Cluster Center,,1,0.9073,0.8969,0.8956
+Covariance,Intraclass,K-means,Cluster Center,,2,0.9277,0.9216,0.9259
+Covariance,Intraclass,K-means,Cluster Center,,3,0.9519,0.9496,0.9488
+Covariance,Intraclass,K-means,Cluster Center,,4,0.943,0.9398,0.9505
+Covariance,Intraclass,K-means,Cluster Center,,5,0.9624,0.9579,0.9576
+Covariance,Intraclass,K-means,Cluster Center,,6,0.9503,0.9488,0.9482
+Covariance,Intraclass,K-means,Cluster Center,,7,0.9572,0.955,0.9604
+Covariance,Intraclass,K-means,Cluster Center,,8,0.9611,0.9588,0.9586
+Covariance,Intraclass,K-means,Cluster Center,,9,0.9538,0.9514,0.9509
+Covariance,Intraclass,K-means,Cluster Center,,10,0.9602,0.9581,0.9579
+Covariance,Intraclass,K-means,Cluster Center,,20,0.9642,0.9623,0.9567
+,,,,,,,,
+Covariance,Intraclass,K-means,Cluster Center,,1,0.9073,0.8969,0.8956
+Covariance,Intraclass,K-means,Cluster Center,,2,0.9277,0.9216,0.9259
+Covariance,Intraclass,K-means,Cluster Center,,3,0.9519,0.9496,0.9488
+Covariance,Intraclass,K-means,Cluster Center,,4,0.943,0.9398,0.9505
+Covariance,Intraclass,K-means,Cluster Center,,5,0.9624,0.9579,0.9576
+Covariance,Intraclass,K-means,Cluster Center,,6,0.9503,0.9488,0.9482
+Covariance,Intraclass,K-means,Cluster Center,,7,0.9572,0.955,0.9604
+Covariance,Intraclass,K-means,Cluster Center,,8,0.9611,0.9588,0.9586
+Covariance,Intraclass,K-means,Cluster Center,,9,0.9538,0.9514,0.9509
+Covariance,Intraclass,K-means,Cluster Center,,10,0.9602,0.9581,0.9579
+Covariance,Intraclass,K-means,Cluster Center,,20,0.9642,0.9623,0.9567
