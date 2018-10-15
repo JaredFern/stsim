@@ -22,21 +22,32 @@ def pixel_cnt(img_path = "/home/jaredfern/Desktop/textures/curet-color", save=Tr
     if save: pickle.dump(class_colors, open("color_features.bin", "wb"))
     return class_colors
 
-def extend_color_features(stsim_matrix, color_cnts, colors = 1, ordered = "luminance"):
+def extend_color_features(stsim_matrix, color_cnts, colors=1, ordered="luminance", weighted=False):
     for stsim_class in stsim_matrix.keys():
         flattened_colors = []
         for img_ind in range(len(stsim_matrix[stsim_class])):
-            pixel_cnt = color_cnts[stsim_class][img_ind]
+            pixel_cnt = color_cnts[stsim_class][img_ind]     
+            # Order color features by composition or luminance
             if ordered == "composition":
                 color_features = [i[0] for i in pixel_cnt.most_common(colors)]
             elif ordered == "luminance":
                 color_features = sorted(pixel_cnt.keys(), key=lambda x:x[0])[:colors]
+
+            # Weight color values proportional to color percent composition
+            if weighted:
+                color_features = [
+                    (pixel_comp * pixel_cnt[color]/sum(pixel_cnt.values()) 
+                        for pixel_comp in color)
+                    for color in pixel_cnt.keys()
+                ]
+
+            # Pad color(0,0,0) if there are less than opt.aca_color_cnt
             if len(color_features) < colors: 
-                color_features.append([(0,0,0) for i in range(colors - len(flattened_colors))])
+                color_features.extend([(0,0,0) for i in range(colors - len(color_features))])
             flattened_colors.append([val for color in color_features for val in color])
-            
+
         stsim_matrix[stsim_class] = np.hstack((
             np.array(stsim_matrix[stsim_class]), 
             np.array(flattened_colors)
-        ))
+            ))
     return stsim_matrix

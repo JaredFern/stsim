@@ -11,17 +11,22 @@ from scipy.spatial.distance import mahalanobis
 def main(opt):
     all_vectors = np.load('curet_vectors.bin')
     if opt.normalize: all_vectors = normalize(all_vectors, opt.normalize)
-
+    # Load stsim vectors from file and hash by class
     stsim_vectors = {
         ind: np.array([vec for vec in all_vectors if vec[0] == ind]) 
         for ind in range(1,59)
     }
+
+    # Extend stsim vectors to include their aca LAB color features
     if opt.aca_color_cnt: 
         stsim_vectors = color_extraction.extend_color_features(
             stsim_vectors,
             pickle.load(open('color_features.bin', 'rb')),
             opt.aca_color_cnt,  
-            opt.aca_color_ordering)
+            opt.aca_color_ordering,
+            opt.aca_color_weighted)
+
+    # Create opt.fold_cnt number of cross validation splits for each class
     validators = {
         ind: KFold(n_splits=opt.fold_cnt, shuffle=True).split(stsim_vectors[ind]) 
         for ind in stsim_vectors
@@ -34,12 +39,14 @@ def main(opt):
         print (f'Training CV Fold: {i}')
         train_split, test_split, class_matrix = [], [], []
         for img, vecs in stsim_vectors.items():
+            # Get training and test splits for M matrix from cross validators
             train_ind, test_ind = next(validators[img])
             curr_train = np.asarray([vecs[i] for i in train_ind])
             curr_test = np.asarray([vecs[i] for i in test_ind])
             train_split.extend(curr_train)
             test_split.extend(curr_test)
 
+            # Generate array of [var, cov, std] matrices from each class
             if opt.scope =='intraclass':
                 if opt.distance_metric =='var':
                     class_matrix.append(np.var(curr_train[:,1:], axis=0))
@@ -48,6 +55,7 @@ def main(opt):
                 elif opt.distance_metric =='cov':
                     class_matrix.append(np.cov(curr_train[:,1:], rowvar=False))
 
+        # Flatten training array for computing global M matrix for 
         train_split = np.asarray(train_split)
         if opt.scope =='global':
             if opt.distance_metric =='std':
@@ -56,12 +64,12 @@ def main(opt):
                 dist_matrix = np.diag(np.var(train_split[:,1:], axis=0))
             elif opt.distance_metric =='cov':
                 dist_matrix = np.cov(np.array(train_split)[:,1:], rowvar=False)
+        # Compute single M matrix from individual class M matrices
         elif opt.scope =='intraclass':
             if opt.distance_metric in ['std', 'var']:
                 dist_matrix = np.diag(np.mean(class_matrix,axis=0))
             elif opt.distance_metric =='cov':
                 dist_matrix= np.mean(class_matrix, axis=0)
-        if dist_matrix == []: pdb
         results.append(evaluate(dist_matrix, train_split, test_split, opt))
         print (results[-1])
     print (np.mean(results, axis=0))
@@ -78,7 +86,6 @@ def normalize(vectors, norm):
 def evaluate(dist_matrix, train_split, test_split, opt):
     cluster_centers = {}
     exemplar_sim, predicted_label =  [], []
-
     dist_matrix = np.linalg.inv(dist_matrix)
     for img in range(1,59):
         stsim_vectors = [vec[1:] for vec in train_split if vec[0] == img]
@@ -118,6 +125,7 @@ if __name__ == '__main__':
     parser.add_argument('--cluster_cnt', type=int, default=5)
     parser.add_argument('--aca_color_cnt', type=int, default=0)
     parser.add_argument('--aca_color_ordering', choices = ['luminance', 'composition'])
+    parser.add_argument('--aca_color_weighted', type=bool, default=False)
     parser.add_argument('--fold_cnt', type=int, default=10)
 
     opt = parser.parse_args()
