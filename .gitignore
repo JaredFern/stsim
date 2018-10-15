@@ -2,3 +2,7 @@ curet-color
 curet-grayscale
 curet-vectors.bin
 papers/
+.idea/
+.vscode/
+__pycache__/
+.~lock.retrieval-results.csv#
