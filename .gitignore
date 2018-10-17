@@ -6,3 +6,4 @@ papers/
 .vscode/
 __pycache__/
 .~lock.retrieval-results.csv#
+identical/
