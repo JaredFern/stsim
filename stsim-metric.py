@@ -1,7 +1,15 @@
-import argparse, logging, color_extraction, pickle
+import argparse
+import color_extraction
+import cv2
+import logging
+import os
+import perceptual
+import pickle
 import numpy as np
+
 from numpy.linalg import inv
-from sklearn.model_selection import KFold
+from perceptual.metric import Metric
+from sklearn.model_selection import KFold, LeaveOneOut
 from sklearn.metrics import precision_recall_fscore_support as score
 from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
@@ -9,16 +17,17 @@ from sklearn.neighbors import NearestNeighbors
 from scipy.spatial.distance import mahalanobis
 
 def main(opt):
-    all_vectors = np.load('curet_vectors.bin')
-    if opt.normalize: all_vectors = normalize(all_vectors, opt.normalize)
-    # Load stsim vectors from file and hash by class
+    # Load or extract stsim vecors from grayscale images
+    all_vectors = np.load(opt.stsim_file) if opt.stsim_file else extractVectors(opt)
+    if opt.normalize:
+        all_vectors = normalize(all_vectors, opt.normalize)
     stsim_vectors = {
-        ind: np.array([vec for vec in all_vectors if vec[0] == ind]) 
-        for ind in range(1,59)
+        ind: np.array([vec for vec in all_vectors if vec[0] == ind])
+        for ind in set(all_vectors[:,0])
     }
 
     # Extend stsim vectors to include their aca LAB color features
-    if opt.aca_color_cnt: 
+    if opt.aca_color_cnt:  
         stsim_vectors = color_extraction.extend_color_features(
             stsim_vectors,
             pickle.load(open('color_features.bin', 'rb')),
@@ -31,7 +40,7 @@ def main(opt):
         ind: KFold(n_splits=opt.fold_cnt, shuffle=True).split(stsim_vectors[ind]) 
         for ind in stsim_vectors
     }
-
+        
     # Train and evaluate each fold
     print (f'Evaluating {opt.scope} {opt.distance_metric}')
     results = []
@@ -52,7 +61,7 @@ def main(opt):
                     class_matrix.append(np.var(curr_train[:,1:], axis=0))
                 elif opt.distance_metric =='std':
                     class_matrix.append(np.std(curr_train[:,1:], axis=0))
-                elif opt.distance_metric =='cov':
+                elif opt.distance_metric =='cov' and len(curr_train) >  1:
                     class_matrix.append(np.cov(curr_train[:,1:], rowvar=False))
 
         # Flatten training array for computing global M matrix for 
@@ -70,11 +79,12 @@ def main(opt):
                 dist_matrix = np.diag(np.mean(class_matrix,axis=0))
             elif opt.distance_metric =='cov':
                 dist_matrix= np.mean(class_matrix, axis=0)
-        results.append(evaluate(dist_matrix, train_split, test_split, opt))
+        results.append(evaluate(dist_matrix, stsim_vectors, train_split, test_split, opt))
         print (results[-1])
     print (np.mean(results, axis=0))
 
 def normalize(vectors, norm):
+    import pdb; pdb.set_trace()
     if norm == 'z-norm':
         norm_const = np.std(vectors[:,1:], axis=0)
     elif norm == 'L2-norm':
@@ -83,11 +93,23 @@ def normalize(vectors, norm):
     vectors[:,1:] = vectors[:,1:]/norm_const
     return vectors
 
-def evaluate(dist_matrix, train_split, test_split, opt):
+def extractVectors(opt):
+    stsim_vectors = []
+    for root, dirs, files in os.walk(opt.image_dir):
+        img_classes = set([img.split("_")[0] for img in files])
+        img_enum = {img:cnt for cnt, img in enumerate(img_classes)}
+        for img in files:
+            img_class = img_enum[img.split("_")[0]]
+            vec = list(Metric().STSIM_M(cv2.imread(os.path.join(root,img), cv2.IMREAD_GRAYSCALE)))
+            stsim_vectors.append(np.asarray([img_class] + vec))
+    np.save(open('identical_vectors.bin', 'wb'),stsim_vectors)
+    return stsim_vectors     
+
+def evaluate(dist_matrix, stsim_vectors, train_split, test_split, opt):
     cluster_centers = {}
     exemplar_sim, predicted_label =  [], []
     dist_matrix = np.linalg.inv(dist_matrix)
-    for img in range(1,59):
+    for img in stsim_vectors.keys():
         stsim_vectors = [vec[1:] for vec in train_split if vec[0] == img]
         if opt.cluster_method == 'gmm':
             cluster_model = GaussianMixture(n_components=opt.cluster_cnt).fit(stsim_vectors)
@@ -95,11 +117,13 @@ def evaluate(dist_matrix, train_split, test_split, opt):
         elif opt.cluster_method == 'kmeans':
             cluster_model = KMeans(n_clusters=opt.cluster_cnt).fit(stsim_vectors)
             cluster_centers[img] = cluster_model.cluster_centers_
+        elif opt.cluster_method == 'all_training':
+            cluster_centers[img] = stsim_vectors
 
         if opt.exemplar == 'nearest_neighbor':
             neigh = NearestNeighbors(n_jobs=4).fit(stsim_vectors)
             ind = [
-                neigh.kneighbors([cnt], n_neighbors = 1, return_distance = False)[0][0]
+                neigh.kneighbors([cnt], n_neighbors=1, return_distance = False)[0][0]
                 for cnt in cluster_centers[img]
             ]
             cluster_centers[img] = [stsim_vectors[i] for i in ind]
@@ -117,14 +141,16 @@ def evaluate(dist_matrix, train_split, test_split, opt):
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--stsim_file', type=str)
+    parser.add_argument('--image_dir', type=str)
     parser.add_argument('--normalize', choices = ['z-norm', 'L2-norm'])
-    parser.add_argument('--distance_metric', choices = ['var', 'cov', 'std'])
-    parser.add_argument('--scope', choices=['global', 'intraclass'])
-    parser.add_argument('--exemplar', choices=['nearest_neighbor', 'cluster_center'])
-    parser.add_argument('--cluster_method', choices = ['kmeans','gmm'], default='kmeans')
-    parser.add_argument('--cluster_cnt', type=int, default=5)
+    parser.add_argument('--distance_metric', choices = ['var', 'cov', 'std'], default='cov')
+    parser.add_argument('--scope', choices=['global', 'intraclass'], default='intraclass')
+    parser.add_argument('--exemplar', choices=['nearest_neighbor', 'cluster_center'], default='nearest_neighbor')
+    parser.add_argument('--cluster_method', choices = ['kmeans','gmm', 'all_training'], default='kmeans')
+    parser.add_argument('--cluster_cnt', type=int, default=1)
     parser.add_argument('--aca_color_cnt', type=int, default=0)
-    parser.add_argument('--aca_color_ordering', choices = ['luminance', 'composition'])
+    parser.add_argument('--aca_color_ordering', choices = ['luminance', 'composition'], default='luminance')
     parser.add_argument('--aca_color_weighted', type=bool, default=False)
     parser.add_argument('--fold_cnt', type=int, default=10)
 
