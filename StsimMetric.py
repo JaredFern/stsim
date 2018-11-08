@@ -56,7 +56,21 @@ def main(opt):
             test_split.extend(curr_test)
 
             # Generate array of [var, cov, std] matrices from each class
-            if opt.scope =='intraclass':
+            if opt.scope == 'cluster':
+                cluster_model = KMeans(n_clusters=opt.cluster_cnt).fit(curr_train[:,1:])
+                clusters = [
+                    np.asarray([curr_train[ii] for ii in range(len(curr_train))
+                        if cluster_model.labels_[ii] == j])
+                    for j in range(opt.cluster_cnt)
+                ]
+                for c in clusters:
+                    if opt.distance_metric =='var':
+                        class_matrix.append(np.var(c[:,1:], axis=0))
+                    elif opt.distance_metric =='std':
+                        class_matrix.append(np.std(c[:,1:], axis=0))
+                    elif opt.distance_metric =='cov' and len(c) >  1:
+                        class_matrix.append(np.cov(c[:,1:], rowvar=False))
+            elif opt.scope =='intraclass':
                 if opt.distance_metric =='var':
                     class_matrix.append(np.var(curr_train[:,1:], axis=0))
                 elif opt.distance_metric =='std':
@@ -74,7 +88,7 @@ def main(opt):
             elif opt.distance_metric =='cov':
                 dist_matrix = np.cov(np.array(train_split)[:,1:], rowvar=False)
         # Compute single M matrix from individual class M matrices
-        elif opt.scope =='intraclass':
+        elif opt.scope in ['intraclass', 'cluster']:
             if opt.distance_metric in ['std', 'var']:
                 dist_matrix = np.diag(np.mean(class_matrix,axis=0))
             elif opt.distance_metric =='cov':
@@ -84,7 +98,6 @@ def main(opt):
     print (np.mean(results, axis=0))
 
 def normalize(vectors, norm):
-    import pdb; pdb.set_trace()
     if norm == 'z-norm':
         norm_const = np.std(vectors[:,1:], axis=0)
     elif norm == 'L2-norm':
@@ -93,17 +106,17 @@ def normalize(vectors, norm):
     vectors[:,1:] = vectors[:,1:]/norm_const
     return vectors
 
-def extractVectors(opt):
+def extractVectors(dir):
     stsim_vectors = []
-    for root, dirs, files in os.walk(opt.image_dir):
-        img_classes = set([img.split("_")[0] for img in files])
+    for root, dirs, files in os.walk(dir):
+        img_classes = set([img.split("-")[0] for img in files])
         img_enum = {img:cnt for cnt, img in enumerate(img_classes)}
         for img in files:
-            img_class = img_enum[img.split("_")[0]]
+            img_class = img_enum[img.split("-")[0]]
             vec = list(Metric().STSIM_M(cv2.imread(os.path.join(root,img), cv2.IMREAD_GRAYSCALE)))
             stsim_vectors.append(np.asarray([img_class] + vec))
     np.save(open('identical_vectors.bin', 'wb'),stsim_vectors)
-    return stsim_vectors     
+    return np.asarray(stsim_vectors)     
 
 def evaluate(dist_matrix, stsim_vectors, train_split, test_split, opt):
     cluster_centers = {}
@@ -145,14 +158,14 @@ if __name__ == '__main__':
     parser.add_argument('--image_dir', type=str)
     parser.add_argument('--normalize', choices = ['z-norm', 'L2-norm'])
     parser.add_argument('--distance_metric', choices = ['var', 'cov', 'std'], default='cov')
-    parser.add_argument('--scope', choices=['global', 'intraclass'], default='intraclass')
-    parser.add_argument('--exemplar', choices=['nearest_neighbor', 'cluster_center'], default='nearest_neighbor')
+    parser.add_argument('--scope', choices=['global', 'intraclass', 'cluster'], default='intraclass')
+    parser.add_argument('--exemplar', choices=['nearest_neighbor', 'cluster_center'], default='cluster_center')
     parser.add_argument('--cluster_method', choices = ['kmeans','gmm', 'all_training'], default='kmeans')
     parser.add_argument('--cluster_cnt', type=int, default=1)
     parser.add_argument('--aca_color_cnt', type=int, default=0)
     parser.add_argument('--aca_color_ordering', choices = ['luminance', 'composition'], default='luminance')
     parser.add_argument('--aca_color_weighted', type=bool, default=False)
-    parser.add_argument('--fold_cnt', type=int, default=10)
+    parser.add_argument('--fold_cnt', type=int, default=5)
 
     opt = parser.parse_args()
     main(parser.parse_args())

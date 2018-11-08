@@ -10,3 +10,5 @@ identical/
 distortions/
 Steerable-filter/
 perceptual/
+data/
+__pycache__
