@@ -6,12 +6,10 @@ import argparse
 import os
 import cv2
 import numpy as np
-from pprint import pprint
-from numpy.linalg import inv
-from perceptual.metric import Metric
+from utils.metric import Metric
 from scipy.spatial.distance import mahalanobis
 from scipy.stats import spearmanr, pearsonr
-from sklearn.manifold import MDS
+
 
 def main(opt):
     if opt.image_dir:

@@ -1,13 +1,9 @@
-curet-color
-curet-grayscale
-curet-vectors.bin
-papers/
+data/
+bin/
+*.bin
 .idea/
 .vscode/
 __pycache__/
-.~lock.retrieval-results.csv#
-identical/
-distortions/
 Steerable-filter/
 perceptual/
 data/
