@@ -12,7 +12,6 @@ from scipy.spatial.distance import mahalanobis
 from skimage import color
 from skimage.feature import local_binary_pattern
 
-from sklearn.model_selection import StratifiedKFold
 from utils import filterbank, metric
 
 SCALE_INVARIANCE = False
@@ -35,11 +34,10 @@ def _filter_class_counts(image_dir, class_cnt):
     return img_class_files
 
 class TextureFeature(ABC):
-    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features, fold_cnt=5):
+    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features):
         self.labels, self.features = self.load_or_generate_features(
             image_dir_or_saved_bin, class_cnt, save_features)
-        self.validator = StratifiedKFold(n_splits=fold_cnt, shuffle=True).split(
-            self.features, self.labels)
+        self.cluster_labels, self.cluster_features = [], []
 
     def load_or_generate_features(self, image_dir_or_saved_features, class_cnt, save_features):
         if os.path.isfile(image_dir_or_saved_features):
@@ -57,6 +55,23 @@ class TextureFeature(ABC):
             np.savez(open(save_features, 'wb'), img_labels, img_features)
         return img_labels, img_features
 
+    def _cluster_examples(self, train_split, cluster_method, cluster_cnt):
+        self.cluster_labels, self.cluster_centers = [], []
+        for img in set(self.labels):
+            img_features = [texture_feature.feature[idx]
+                            for idx in train_split if texture_feature.labels[idx] == img]
+            if cluster_method == 'gmm':
+                cluster_model = GaussianMixture(n_components=cluster_cnt).fit(img_features)
+                for center in cluster_model.means_:
+                    self.cluster_centers.append(center)
+                    self.cluster_labels.append(img)
+            elif cluster_method == 'kmeans':
+                cluster_model = KMeans(n_clusters=cluster_cnt).fit(img_features)
+                for center in cluster_model.cluster_centers_:
+                    self.cluster_centers.append(center)
+                    self.cluster_labels.append(img)
+        return self.cluster_labels, self.cluster_centers
+
     @abstractmethod
     def generate_feature(self, fpath):
         pass
@@ -67,15 +82,15 @@ class TextureFeature(ABC):
 
 
 class Ssim(TextureFeature):
-    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features, fold_cnt=5,
-                 k_range=(0.01, 0.03), L=255):
+    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features, k_range=(0.01, 0.03),
+                 L=255):
         self.k_range = k_range
         self.luminance = L
         self.c1 = (k_range[0] * L) ** 2
         self.c2 = (k_range[1] * L) ** 2
         tmp_window = metric.fspecial()
         self.window = tmp_window/tmp_window.sum()
-        super().__init__(image_dir_or_saved_bin, class_cnt, save_features, fold_cnt)
+        super().__init__(image_dir_or_saved_bin, class_cnt, save_features)
 
     def generate_feature(self, fpath):
         source_image = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
@@ -92,24 +107,63 @@ class Ssim(TextureFeature):
                 (feature_1[1] + feature_2[1] + self.c2))
         return ssim_map.mean()
 
-class Stsim1(TextureFeature):
+class Stsim(TextureFeature):
+    @abstractmethod
     def generate_feature(self, fpath):
+        pass
+
+    @abstractmethod
+    def compute_similarity(self, feature_1, feature_2):
+        pass
+
+    def generate_stsim1_features(self, fpath):
         steerable_filter = filterbank.Steerable()
         source_image = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
         steerable_pyramid = steerable_filter.getlist(steerable_filter.buildSCFpyr(source_image))
-        import pdb; pdb.set_trace()
-        return steerable_pyramid
+
+        C = 0.001
+        stsim_features = [] # [mu_0, sigma_0, rho_x, rho_y for each subband]
+        for subband in steerable_pyramid:
+            window = metric.fspecial(7, 7/6.0)
+            mu_0 = np.abs(metric.conv(subband, window))
+            sigma_0 = np.sqrt(metric.conv(np.abs(subband, subband), window))
+            subband_features = [mu_0, sigma_0]
+
+            window2 = np.ones((7, 6))/42
+            subbands_x = subband[:,:-1], subband[:,1:]
+            subbands_y = subband[:-1,:], subband[1:,:]
+            for sb_pair in (subbands_x, subbands_y):
+                mu_1 = metric.conv(sb_pair[0], window2)
+                mu_2 = metric.conv(sb_pair[1], window2)
+                sigma_1 = metric.conv(np.abs(sb_pair[0]**2), window2) - np.abs(mu_1 ** 2)
+                sigma_2 = metric.conv(np.abs(sb_pair[1]**2), window2) - np.abs(mu_2 ** 2)
+                sigma_cross = metric.conv(sb_pair[0] * np.conj(sb_pair[1]), window2) - mu_1 * \
+                              np.conj(mu_2)
+                rho = (sigma_cross + C) / (np.sqrt(sigma_1) * np.sqrt(sigma_2) + C)
+                subband_features.append(rho)
+            stsim_features.append(subband_features)
+        return stsim_features
+
+class Stsim1(Stsim):
+    def generate_feature(self, fpath):
+        return self.generate_stsim1_features(fpath)
 
     def compute_similarity(self, feature_1, feature_2):
-        np.mean([metric.pooling(feature_1[i], feature_2[i]) for i in range(len(feature_1))])
+        C = 0.001
+        pooled_subbands = []
+        for subband1, subband2 in zip(feature_1, feature_2):
+            L_map = (2 * subband1[0] * subband2[0] + C) / (subband1[0] ** 2 + subband2[0] ** 2 + C)
+            C_map = (2 * subband1[1] * subband2[1] + C) / (subband1[1] ** 2 + subband2[1] ** 2 + C)
+            C_xmap = 1 - 0.5 * np.abs(subband1[2] - subband2[2])
+            C_ymap = 1 - 0.5 * np.abs(subband1[3] - subband2[3])
+            pooled_subband.append(np.power(L_map * C_map * C_xmap * C_ymap, 0.25).mean())
+        return np.mean(pooled_subbands)
 
-
-class Stsim2(TextureFeature):
+class Stsim2(Stsim):
     def generate_feature(self, fpath):
-        source_image = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
+        stsim_features = generate_stsim1_features(fpath)
 
-        steerable_filter = filterbank.Steerable()
-        steerable_pyramid = steerable_filter.getlist(steerable_filter.buildSCFpyr(source_image))
+        source_image = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
 
         steerable_filter_nosubbands = filterbank.SteerableNoSub()
         steerable_crossterms = steerable_filter_nosubbands.buildSCFpyr(source_image)
@@ -143,16 +197,15 @@ class Stsim2(TextureFeature):
 
 
 class StsimC(TextureFeature):
-    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features, fold_cnt=5,
-                 mahalanobis_file=None, mahalanobis_type="cov", scope="intraclass",
-                 aca_color_cnt=0, color_dir=""):
+    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features, mahalanobis_file=None,
+                 mahalanobis_type="cov", scope="intraclass", aca_color_cnt=0, color_dir=""):
         self.mahalanobis_file = mahalanobis_file
         self.mahalanobis_type = mahalanobis_type
         self.scope = scope
         self.aca_color_cnt = aca_color_cnt
         self.color_dir = color_dir
         self.mahalanobis_matrix = None
-        super().__init__(image_dir_or_saved_bin, class_cnt, save_features, fold_cnt)
+        super().__init__(image_dir_or_saved_bin, class_cnt, save_features)
 
     def compute_similarity(self, feature_1, feature_2):
         return mahalanobis(feature_1, feature_2, inv(self.mahalanobis_matrix))
@@ -216,12 +269,12 @@ class StsimC(TextureFeature):
 
 
 class LocalBinaryPattern(TextureFeature):
-    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features, fold_cnt,  n_points,
-                 radius, lbp_method):
+    def __init__(self, image_dir_or_saved_bin, class_cnt, save_features,  n_points, radius,
+                 lbp_method):
         self.n_points = n_points
         self.radius = radius
         self.lbp_method = lbp_method
-        super().__init__(image_dir_or_saved_bin, class_cnt, save_features, fold_cnt)
+        super().__init__(image_dir_or_saved_bin, class_cnt, save_features)
 
     def compute_similarity(self, feature_1, feature_2):
         return entropy(feature_1, feature_2)
