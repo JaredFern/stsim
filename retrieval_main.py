@@ -39,20 +39,21 @@ def evaluate(opt, texture_feature):
                 similarities[jj] = texture_feature.compute_similarity(
                     texture_feature.features[test_idx],
                     texture_feature.features[train_idx])
-        sorted_sim_idx = similarities.argsort()
-        predicted_labels.append(train_labels[sorted_sim_idx[0]])
-        precision_1[ii] = 1 if str(predicted_labels[ii]) == test_labels[ii] else 0
 
+        if opt.metric in ('lbp', 'stsim_c'):
+            sorted_sim_idx = similarities.argsort()
+        else:
+            sorted_sim_idx = similarities.argsort()[::-1]
+        predicted_labels.append(train_labels[sorted_sim_idx[0]])
         for jj, idx in enumerate(sorted_sim_idx):
             if train_labels[idx] == test_labels[ii]:
                 mrr[ii] = 1.0/(jj + 1.0)
                 break
-    _, recall, f1, _ = precision_recall_fscore_support(test_labels, predicted_labels,
+    prec, recall, f1, _ = precision_recall_fscore_support(test_labels, predicted_labels,
                                                        average='micro')
-    avg_prec = np.mean(precision_1)
     avg_mrr = np.mean(mrr)
-    print(f"P@1: {avg_prec}, MRR: {avg_mrr}, Recall: {recall}, F1:{f1}")
-    return avg_prec, avg_mrr, recall, f1
+    print("P@1: " + str(prec) + " MRR: "+ str(avg_mrr))
+    return prec, avg_mrr, recall, f1
 
 
 def cluster_examples(texture_feature, train_split):
@@ -76,27 +77,28 @@ def cluster_examples(texture_feature, train_split):
 def main(opt):
     if opt.metric == 'ssim':
         texture_features = Ssim(opt.image_dir_or_saved_bin, opt.class_cnt, opt.save_features,
-                                opt.fold_cnt)
+                                opt.scale_invariance, opt.fold_cnt)
     elif opt.metric == 'stsim1':
         texture_features = Stsim1(opt.image_dir_or_saved_bin, opt.class_cnt, opt.save_features,
-                                  opt.fold_cnt)
+                                  opt.scale_invariance, opt.fold_cnt)
     elif opt.metric == 'stsim2':
         texture_features = Stsim2(opt.image_dir_or_saved_bin, opt.class_cnt, opt.save_features,
-                                  opt.fold_cnt)
+                                  opt.scale_invariance, opt.fold_cnt)
     elif opt.metric == 'stsim_c':
         texture_features = StsimC(opt.image_dir_or_saved_bin, opt.class_cnt, opt.save_features,
-                                  opt.fold_cnt, opt.mahalanobis_file, opt.mahalanobis_type,
-                                  opt.mahalanobis_scope, opt.aca_color_cnt, opt.color_dir)
+                                  opt.scale_invariance, opt.fold_cnt, opt.mahalanobis_file, 
+                                  opt.mahalanobis_type, opt.mahalanobis_scope, 
+                                  opt.aca_color_cnt, opt.color_dir)
     elif opt.metric == 'lbp':
         texture_features = LocalBinaryPattern(opt.image_dir_or_saved_bin, opt.class_cnt,
-                                              opt.save_features, opt.fold_cnt, opt.n_points,
-                                              opt.radius, opt.lbp_method)
+                                              opt.save_features, opt.scale_invariance, 
+                                              opt.fold_cnt, opt.n_points, opt.radius, 
+                                              opt.lbp_method)
 
     # Train and evaluate each fold
     folds = opt.fold_cnt if opt.fold_cnt > 0 else 1
     results = []
     for i in range(folds):
-        print(f'Training CV Fold: {i}')
         results.append(evaluate(opt, texture_features))
     print(np.mean(results, axis=0))
 
@@ -106,9 +108,10 @@ if __name__ == '__main__':
     # Metric experimental configs
     parser.add_argument('--metric', choices=['ssim', 'stsim1', 'stsim2', 'stsim_c', 'lbp'])
     parser.add_argument('--image_dir_or_saved_bin', type=str)
-    parser.add_argument('--class_cnt', type=int, default=16)
+    parser.add_argument('--class_cnt', type=int, default=-1)
     parser.add_argument('--save_features', type=str)
     parser.add_argument('--fold_cnt', type=int, default=5)
+    parser.add_argument('--scale_invariance', type=bool, default=False)
 
     # Exemplar Clustering configs (defaults to off)
     parser.add_argument('--cluster_method', choices=['kmeans', 'gmm'], default=None)
@@ -117,7 +120,7 @@ if __name__ == '__main__':
     # Configs for STSIM-C metrics
     parser.add_argument('--mahalanobis_file', type=str)
     parser.add_argument('--mahalanobis_type', choices=['std', 'var', 'cov'], default='cov')
-    parser.add_argument('--mahalanobis_scope', choices=['intraclass', 'global'],
+    parser.add_argument('--mahalanobis_scope', choices=['intraclass', 'global', 'stsim_i'],
                         default='intraclass')
     parser.add_argument('--aca_color_cnt', type=int, default=0)
     parser.add_argument('--color_dir', type=str)
