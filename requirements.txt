@@ -6,7 +6,7 @@ joblib==0.16.0
 kiwisolver==1.2.0
 matplotlib==3.3.2
 networkx==2.5
-numpy==1.19.2
+numpy==1.21.0
 opencv-python==4.4.0.42
 Pillow==9.0.0
 pyparsing==2.4.7
